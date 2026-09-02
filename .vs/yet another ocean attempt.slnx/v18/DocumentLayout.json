@@ -1,0 +1,105 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\Yousef\\Desktop\\Unity Projects\\yet another ocean attempt\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|c:\\users\\yousef\\desktop\\unity projects\\yet another ocean attempt\\assets\\myassets\\shaders \u0026 materials\\shaders\\custom functions\\oceanscreendisplacement.hlsl||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\myassets\\shaders \u0026 materials\\shaders\\custom functions\\oceanscreendisplacement.hlsl||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|c:\\users\\yousef\\desktop\\unity projects\\yet another ocean attempt\\assets\\myassets\\shaders \u0026 materials\\shaders\\custom functions\\getscreenpixelworldpos.hlsl||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\myassets\\shaders \u0026 materials\\shaders\\custom functions\\getscreenpixelworldpos.hlsl||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|c:\\users\\yousef\\desktop\\unity projects\\yet another ocean attempt\\assets\\myassets\\shaders \u0026 materials\\shaders\\custom functions\\oceanshadermath updated.hlsl||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\myassets\\shaders \u0026 materials\\shaders\\custom functions\\oceanshadermath updated.hlsl||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|c:\\users\\yousef\\desktop\\unity projects\\yet another ocean attempt\\assets\\myassets\\scripts\\ocean generation stuff\\ocean generator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\myassets\\scripts\\ocean generation stuff\\ocean generator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|c:\\users\\yousef\\desktop\\unity projects\\yet another ocean attempt\\assets\\myassets\\scripts\\miscslashdebug\\mesh creator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\myassets\\scripts\\miscslashdebug\\mesh creator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 4,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "OceanShaderMath Updated.hlsl",
+              "DocumentMoniker": "C:\\Users\\Yousef\\Desktop\\Unity Projects\\yet another ocean attempt\\Assets\\MyAssets\\Shaders \u0026 Materials\\Shaders\\Custom Functions\\OceanShaderMath Updated.hlsl",
+              "RelativeDocumentMoniker": "Assets\\MyAssets\\Shaders \u0026 Materials\\Shaders\\Custom Functions\\OceanShaderMath Updated.hlsl",
+              "ToolTip": "C:\\Users\\Yousef\\Desktop\\Unity Projects\\yet another ocean attempt\\Assets\\MyAssets\\Shaders \u0026 Materials\\Shaders\\Custom Functions\\OceanShaderMath Updated.hlsl",
+              "RelativeToolTip": "Assets\\MyAssets\\Shaders \u0026 Materials\\Shaders\\Custom Functions\\OceanShaderMath Updated.hlsl",
+              "ViewState": "AgIAACIAAAAAAAAAAAAUwE8AAAAGAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002777|",
+              "WhenOpened": "2026-08-27T18:42:54.532Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "Mesh Creator.cs",
+              "DocumentMoniker": "C:\\Users\\Yousef\\Desktop\\Unity Projects\\yet another ocean attempt\\Assets\\MyAssets\\Scripts\\MiscSLASHDebug\\Mesh Creator.cs",
+              "RelativeDocumentMoniker": "Assets\\MyAssets\\Scripts\\MiscSLASHDebug\\Mesh Creator.cs",
+              "ToolTip": "C:\\Users\\Yousef\\Desktop\\Unity Projects\\yet another ocean attempt\\Assets\\MyAssets\\Scripts\\MiscSLASHDebug\\Mesh Creator.cs",
+              "RelativeToolTip": "Assets\\MyAssets\\Scripts\\MiscSLASHDebug\\Mesh Creator.cs",
+              "ViewState": "AgIAALUAAAAAAAAAAAAAAOEAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-08-27T17:27:16.513Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Ocean Generator.cs",
+              "DocumentMoniker": "C:\\Users\\Yousef\\Desktop\\Unity Projects\\yet another ocean attempt\\Assets\\MyAssets\\Scripts\\Ocean Generation Stuff\\Ocean Generator.cs",
+              "RelativeDocumentMoniker": "Assets\\MyAssets\\Scripts\\Ocean Generation Stuff\\Ocean Generator.cs",
+              "ToolTip": "C:\\Users\\Yousef\\Desktop\\Unity Projects\\yet another ocean attempt\\Assets\\MyAssets\\Scripts\\Ocean Generation Stuff\\Ocean Generator.cs",
+              "RelativeToolTip": "Assets\\MyAssets\\Scripts\\Ocean Generation Stuff\\Ocean Generator.cs",
+              "ViewState": "AgIAALoAAAAAAAAAAAAAAOUAAAA2AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-08-10T18:23:55.22Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "GetScreenPixelWorldPos.hlsl",
+              "DocumentMoniker": "C:\\Users\\Yousef\\Desktop\\Unity Projects\\yet another ocean attempt\\Assets\\MyAssets\\Shaders \u0026 Materials\\Shaders\\Custom Functions\\GetScreenPixelWorldPos.hlsl",
+              "RelativeDocumentMoniker": "Assets\\MyAssets\\Shaders \u0026 Materials\\Shaders\\Custom Functions\\GetScreenPixelWorldPos.hlsl",
+              "ToolTip": "C:\\Users\\Yousef\\Desktop\\Unity Projects\\yet another ocean attempt\\Assets\\MyAssets\\Shaders \u0026 Materials\\Shaders\\Custom Functions\\GetScreenPixelWorldPos.hlsl",
+              "RelativeToolTip": "Assets\\MyAssets\\Shaders \u0026 Materials\\Shaders\\Custom Functions\\GetScreenPixelWorldPos.hlsl",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAADgAAAAZAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002777|",
+              "WhenOpened": "2026-08-10T20:47:49.221Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "OceanScreenDisplacement.hlsl",
+              "DocumentMoniker": "C:\\Users\\Yousef\\Desktop\\Unity Projects\\yet another ocean attempt\\Assets\\MyAssets\\Shaders \u0026 Materials\\Shaders\\Custom Functions\\OceanScreenDisplacement.hlsl",
+              "RelativeDocumentMoniker": "Assets\\MyAssets\\Shaders \u0026 Materials\\Shaders\\Custom Functions\\OceanScreenDisplacement.hlsl",
+              "ToolTip": "C:\\Users\\Yousef\\Desktop\\Unity Projects\\yet another ocean attempt\\Assets\\MyAssets\\Shaders \u0026 Materials\\Shaders\\Custom Functions\\OceanScreenDisplacement.hlsl",
+              "RelativeToolTip": "Assets\\MyAssets\\Shaders \u0026 Materials\\Shaders\\Custom Functions\\OceanScreenDisplacement.hlsl",
+              "ViewState": "AgIAABIAAAAAAAAAAAAUwC0AAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002777|",
+              "WhenOpened": "2026-08-10T16:01:28.094Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

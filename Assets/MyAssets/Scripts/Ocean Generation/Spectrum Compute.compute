@@ -1,0 +1,293 @@
+#pragma kernel JonswapSpectrum
+#pragma kernel RuntimeSpectrumPacked
+
+//Create a RenderTexture with enableRandomWrite flag and set it with cs.SetTexture
+RWTexture2DArray<float4> Spectrum;
+
+//Store packed complex spectra with two real fields per complex channel
+RWTexture2DArray<float4> PackedDisplacementSpectrum;
+
+//Store slope and Jacobian diagonal terms for normal mapping and foam detection
+RWTexture2DArray<float4> PackedSlopeSpectrum;
+
+//Define simulation variables
+int N;
+float varA;
+float2 Omega;
+float V;
+float g;
+
+//Define JONSWAP environmental parameters
+float Fetch;
+float Depth;
+float Gamma;
+float SpreadPower;
+
+float Time;
+
+static const float PI = 3.14159265;
+
+//Store per-cascade parameter buffers for single-dispatch execution
+StructuredBuffer<float> CascadeL;
+StructuredBuffer<float> CascadeChoppinessScale;
+StructuredBuffer<float> CascadeKLow;
+StructuredBuffer<float> CascadeKHigh;
+
+//Configure layer index and accumulation flags for dual-JONSWAP support
+int LayerIndex;
+int Accumulate;
+float LayerEnergyScale;
+
+float CascadeMask(float k, float kLow, float kHigh)
+{
+    //Calculate soft low-side cutoff mask for the current cascade
+    float lowMask = (kLow <= 0.0001) ? 1.0 : smoothstep(kLow * 0.5, kLow, k);
+    //Calculate soft high-side cutoff mask at the Nyquist frequency
+    float highMask = 1.0 - smoothstep(kHigh * 0.8, kHigh, k);
+    return lowMask * highMask;
+}
+
+float2 hash22_PCG(uint2 p)
+{
+    p = p * 1664525u + 1013904223u;
+    p.x += p.y * 1664525u;
+    p.y += p.x * 1664525u;
+    p ^= p >> 16u;
+    p.x += p.y * 1664525u;
+    p.y += p.x * 1664525u;
+    p ^= p >> 16u;
+    //Scale integers to normalized float range
+    return float2(p) * (1.0 / 4294967296.0);
+}
+
+float2 GetGaussianRandom(float2 seed, float mean, float stdDev)
+{
+    //Get two independent uniform random numbers between clamp bounds
+    float2 u = clamp(hash22_PCG(seed), 0.0001, 1.0);
+    
+    //Calculate Box-Muller transform parameters
+    float r = sqrt(-2.0 * log(u.x));
+    //Calculate full circle angle for polar transformation
+    float theta = 6.28318530718 * u.y;
+    float z0 = r * cos(theta);
+    float z1 = r * sin(theta);
+    
+    //Scale by standard deviation and shift by mean
+    return float2((z0 * stdDev) + mean, (z1 * stdDev) + mean);
+}
+
+float JonswapAlpha(float g, float fetch, float windSpeed)
+{
+    //Calculate JONSWAP alpha parameter from fetch and wind speed
+    return 0.076 * pow(max((windSpeed * windSpeed) / (fetch * g), 0.00001), 0.22);
+}
+
+float JonswapPeakOmega(float g, float fetch, float windSpeed)
+{
+    //Calculate peak angular frequency for JONSWAP spectrum
+    return 22.0 * pow(max((g * g) / (windSpeed * fetch), 0.00001), 1.0 / 3.0);
+}
+
+float JonswapSpectrumS(float omega, float omegaP, float alpha, float gamma, float g)
+{
+    if (omega <= 0.0001)
+    {
+        return 0.0;
+    }
+
+    //Determine peak enhancement factor based on frequency position
+    float sigma = (omega <= omegaP) ? 0.07 : 0.09;
+    float r = exp(-pow(omega - omegaP, 2) / (2.0 * sigma * sigma * omegaP * omegaP));
+
+    //Calculate spectral energy density
+    float S = (alpha * g * g / pow(omega, 5)) *
+              exp(-1.25 * pow(omegaP / omega, 4)) *
+              pow(max(gamma, 0.0001), r);
+
+    return S;
+}
+
+float TMADepthFactor(float omega, float depth, float g)
+{
+    //Calculate shallow water scaling parameter
+    float omegaH = omega * sqrt(depth / g);
+
+    if (omegaH <= 1.0)
+    {
+        return 0.5 * omegaH * omegaH;
+    }
+    else if (omegaH < 2.0)
+    {
+        return 1.0 - 0.5 * pow(2.0 - omegaH, 2);
+    }
+    else
+    {
+        return 1.0;
+    }
+}
+
+float DirectionalSpreading(float thetaDiff, float s)
+{
+    //Calculate directional spreading factor relative to wind angle
+    return pow(max(abs(cos(thetaDiff * 0.5)), 0.0001), 2.0 * s);
+}
+
+[numthreads(16, 16, 1)]
+void JonswapSpectrum(uint3 id : SV_DispatchThreadID)
+{
+    //Retrieve cascade index from dispatch thread ID Z
+    uint cascade = id.z;
+    float L = CascadeL[cascade];
+
+    //Calculate shifted coordinates around grid center
+    float n = id.x - (N / 2.0);
+    float m = id.y - (N / 2.0);
+
+    //Calculate wave vector components and magnitude
+    float2 k;
+    k.x = (2.0 * PI * n) / L;
+    //Use y coordinate for Z-axis direction mapping
+    k.y = (2.0 * PI * m) / L;
+    float k_magnitude = length(k);
+
+    if (k_magnitude < 0.0001)
+    {
+        //Handle zero wave vector condition for non-accumulating layers
+        if (Accumulate == 0)
+        {
+            Spectrum[uint3(id.xy, cascade)] = float4(0, 0, 0, 0);
+        }
+        return;
+    }
+
+    float2 windDir = normalize(Omega);
+
+    //Calculate deep water dispersion relation frequency
+    float omega = sqrt(g * k_magnitude);
+
+    //Calculate fetch-derived JONSWAP parameters
+    float alpha = JonswapAlpha(g, Fetch, V);
+    float omegaP = JonswapPeakOmega(g, Fetch, V);
+
+    //Calculate base frequency spectrum with shallow water correction
+    float S_omega = JonswapSpectrumS(omega, omegaP, alpha, Gamma, g);
+    S_omega *= TMADepthFactor(omega, Depth, g);
+
+    //Calculate directional spread relative to wind direction
+    float thetaK = atan2(k.y, k.x);
+    float thetaWind = atan2(windDir.y, windDir.x);
+    float thetaDiff = thetaK - thetaWind;
+    
+    //Wrap angular difference to valid range
+    thetaDiff = atan2(sin(thetaDiff), cos(thetaDiff));
+
+    float D = DirectionalSpreading(thetaDiff, SpreadPower);
+
+    //Convert frequency spectrum to wave vector spectrum using Jacobian
+    float jacobian = g / (2.0 * omega * k_magnitude);
+
+    float P = S_omega * D * jacobian;
+
+    //Generate offset-seeded Gaussian random numbers for spectrum initialization
+    float2 gaussianRandom = GetGaussianRandom(id.xy + (cascade * 1024u) + (LayerIndex * 7919u), 0.0, 1.0);
+    float deltaK = 2.0 * PI / L;
+
+    //Apply cascade frequency mask and scale by amplitude
+    float mask = CascadeMask(k_magnitude, CascadeKLow[cascade], CascadeKHigh[cascade]);
+    float amplitude = sqrt(P * deltaK * deltaK * 0.5) * mask * LayerEnergyScale;
+
+    //Construct output spectrum value
+    float4 layerValue = float4(amplitude * gaussianRandom.x, amplitude * gaussianRandom.y, 0, 1);
+
+    //Accumulate or overwrite spectrum values based on layer pass
+    if (Accumulate != 0)
+    {
+        Spectrum[uint3(id.xy, cascade)] += layerValue;
+    }
+    else
+    {
+        Spectrum[uint3(id.xy, cascade)] = layerValue;
+    }
+}
+
+[numthreads(16, 16, 1)]
+void RuntimeSpectrumPacked(uint3 id : SV_DispatchThreadID)
+{
+    //Retrieve cascade index and scaling parameters
+    uint cascade = id.z;
+    float L = CascadeL[cascade];
+    float ChoppinessScale = CascadeChoppinessScale[cascade];
+
+    //Calculate shifted grid coordinates
+    float n = id.x - (N / 2.0);
+    float m = id.y - (N / 2.0);
+
+    //Calculate wave vector components and magnitude
+    float2 k;
+    k.x = (2.0 * 3.14159265 * n) / L;
+    //Use y coordinate for Z-axis direction mapping
+    k.y = (2.0 * 3.14159265 * m) / L;
+    float k_magnitude = length(k);
+
+    if (k_magnitude < 0.0001)
+    {
+        //Reset spectrum textures for zero wave vector conditions
+        PackedDisplacementSpectrum[uint3(id.xy, cascade)] = float4(0, 0, 0, 0);
+        PackedSlopeSpectrum[uint3(id.xy, cascade)] = float4(0, 0, 0, 0);
+        return;
+    }
+
+    //Calculate forward angular frequency
+    float w_forward = sqrt(g * k_magnitude);
+    
+    //Sample initial spectrum data and calculate forward phase rotation
+    float2 H0 = Spectrum[uint3(id.xy, cascade)].xy;
+    float sinF, cosF;
+    sincos(w_forward * Time, sinF, cosF);
+    float2 phase_Forward = float2(cosF, -sinF);
+    
+    //Compute rotated forward wave component
+    float2 H_Forward;
+    H_Forward.x = H0.x * phase_Forward.x - H0.y * phase_Forward.y;
+    H_Forward.y = H0.x * phase_Forward.y + H0.y * phase_Forward.x;
+
+    //Calculate mirrored negative wave vector coordinates
+    uint2 mirrored_id = (N - id.xy) % N;
+
+    //Sample conjugate backward component for Hermitian symmetry
+    float2 H0_negK_raw = Spectrum[uint3(mirrored_id, cascade)].xy;
+    float2 H0_Conjugate = float2(H0_negK_raw.x, -H0_negK_raw.y);
+    
+    float2 phase_Backward = float2(cosF, sinF);
+    
+    //Compute rotated backward wave component
+    float2 H_Backward;
+    H_Backward.x = H0_Conjugate.x * phase_Backward.x - H0_Conjugate.y * phase_Backward.y;
+    H_Backward.y = H0_Conjugate.x * phase_Backward.y + H0_Conjugate.y * phase_Backward.x;
+
+    //Combine forward and backward components into total height field spectrum
+    float2 H = H_Forward + H_Backward;
+    float2 iH = float2(-H.y, H.x);
+
+    //Calculate individual real field spectra derivatives and components
+    float2 Dx = ChoppinessScale * (k.x / k_magnitude) * iH;
+    float2 Dz = ChoppinessScale * (k.y / k_magnitude) * iH;
+    float2 Height = H;
+    float2 JacXZ = -ChoppinessScale * (k.x * k.y / k_magnitude) * H;
+
+    float2 SlopeX = k.x * iH;
+    float2 SlopeZ = k.y * iH;
+    float2 JacXX = -ChoppinessScale * (k.x * k.x / k_magnitude) * H;
+    float2 JacZZ = -ChoppinessScale * (k.y * k.y / k_magnitude) * H;
+
+    //Pack real field pairs into complex channels for efficient IFFT evaluation
+    float2 packedRG_disp = float2(Dx.x - Dz.y, Dx.y + Dz.x);
+    float2 packedBA_disp = float2(Height.x - JacXZ.y, Height.y + JacXZ.x);
+
+    float2 packedRG_slope = float2(SlopeX.x - SlopeZ.y, SlopeX.y + SlopeZ.x);
+    float2 packedBA_slope = float2(JacXX.x - JacZZ.y, JacXX.y + JacZZ.x);
+
+    //Store packed displacement and slope spectra to output render textures
+    PackedDisplacementSpectrum[uint3(id.xy, cascade)] = float4(packedRG_disp, packedBA_disp);
+    PackedSlopeSpectrum[uint3(id.xy, cascade)] = float4(packedRG_slope, packedBA_slope);
+}

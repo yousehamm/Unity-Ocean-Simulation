@@ -1,0 +1,241 @@
+//Define compilation targets for execution kernels
+#pragma kernel TwiddleFactor
+#pragma kernel SharedMemoryFFTRow
+#pragma kernel SharedMemoryFFTColumn
+#pragma kernel FinalOutputDisplacement
+#pragma kernel FinalOutputSlope
+
+//Configure render texture targets and data buffers
+RWTexture2D<float4> TwiddleFactorTex;
+RWTexture2DArray<float4> BufferIn;
+RWTexture2DArray<float4> BufferOut;
+
+//Store final unpacked outputs for displacement and structural distortion terms
+RWTexture2DArray<float4> DisplacementXOut;
+RWTexture2DArray<float4> DisplacementZOut;
+RWTexture2DArray<float4> HeightOut;
+RWTexture2DArray<float4> JacobianXZOut;
+
+//Store final unpacked outputs for slope and structural tension terms
+RWTexture2DArray<float4> SlopeXOut;
+RWTexture2DArray<float4> SlopeZOut;
+RWTexture2DArray<float4> JacobianXXOut;
+RWTexture2DArray<float4> JacobianZZOut;
+
+//Define runtime uniform parameters
+int N;
+
+//Batch process multiple cascades in a single dispatch call using thread group dimensions
+uint BitReverse(uint x, uint bits)
+{
+    uint result = 0;
+    
+    for (uint i = 0; i < bits; i++)
+    {
+        result = (result << 1) | (x & 1);
+        x >>= 1;
+    }
+    
+    return result;
+}
+
+//Multiply complex number pairs for butterfly math
+float2 ComplexMul(float2 a, float2 b)
+{
+    return float2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+}
+
+[numthreads(16, 16, 1)]
+void TwiddleFactor(uint3 id : SV_DispatchThreadID)
+{
+    //Calculate precomputed twiddle factors for butterfly operations
+    uint bits = (uint) log2((float) N);
+    
+    if (id.x >= bits || id.y >= (uint) N)
+    {
+        return;
+    }
+
+    uint stage = id.x;
+    uint k = id.y;
+
+    uint blockSize = 1u << (stage + 1);
+    uint halfBlock = blockSize >> 1;
+    uint blockStart = (k / blockSize) * blockSize;
+    uint groupIndex = k % halfBlock;
+
+    float angle = 2.0 * 3.14159265 * (float) groupIndex / (float) blockSize;
+    float2 twiddle = float2(cos(angle), sin(angle));
+
+    uint indexA;
+    uint indexB;
+    
+    if (stage == 0)
+    {
+        uint bCount = (uint) log2((float) N);
+        indexA = BitReverse(blockStart + groupIndex, bCount);
+        indexB = BitReverse(blockStart + groupIndex + halfBlock, bCount);
+    }
+    else
+    {
+        indexA = blockStart + groupIndex;
+        indexB = blockStart + groupIndex + halfBlock;
+    }
+
+    bool topHalf = (k - blockStart) < halfBlock;
+    
+    if (topHalf)
+    {
+        TwiddleFactorTex[id.xy] = float4(twiddle, (float) indexA, (float) indexB);
+    }
+    else
+    {
+        TwiddleFactorTex[id.xy] = float4(-twiddle, (float) indexA, (float) indexB);
+    }
+}
+
+#define MAX_N 1024
+groupshared float4 fftBufferA[MAX_N];
+groupshared float4 fftBufferB[MAX_N];
+
+[numthreads(MAX_N, 1, 1)]
+void SharedMemoryFFTRow(uint3 groupId : SV_GroupID, uint3 groupThreadId : SV_GroupThreadID)
+{
+    //Perform fast fourier transform across rows using shared on-chip memory
+    uint row = groupId.y;
+    uint cascade = groupId.z;
+    uint col = groupThreadId.x;
+
+    //Clamp thread index for valid buffer access while satisfying synchronization barriers
+    uint safeCol = min(col, (uint) (N - 1));
+
+    fftBufferA[col] = BufferIn[uint3(safeCol, row, cascade)];
+    GroupMemoryBarrierWithGroupSync();
+
+    uint stageCount = (uint) log2((float) N);
+    bool sourceIsA = true;
+
+    //Iterate through butterfly stages using loops
+    [loop]
+    for (uint stage = 0; stage < stageCount; stage++)
+    {
+        float4 twiddleData = TwiddleFactorTex[uint2(stage, safeCol)];
+        float2 twiddle = twiddleData.xy;
+        uint indexA = (uint) twiddleData.z;
+        uint indexB = (uint) twiddleData.w;
+
+        float4 valueA = sourceIsA ? fftBufferA[indexA] : fftBufferB[indexA];
+        float4 valueB = sourceIsA ? fftBufferA[indexB] : fftBufferB[indexB];
+        float4 result = valueA + float4(ComplexMul(twiddle, valueB.xy), ComplexMul(twiddle, valueB.zw));
+
+        if (sourceIsA)
+        {
+            fftBufferB[col] = result;
+        }
+        else
+        {
+            fftBufferA[col] = result;
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+        sourceIsA = !sourceIsA;
+    }
+
+    //Write finalized row data to texture buffers
+    if (col < (uint) N)
+    {
+        float4 finalValue = sourceIsA ? fftBufferA[col] : fftBufferB[col];
+        BufferOut[uint3(col, row, cascade)] = finalValue;
+    }
+}
+
+[numthreads(MAX_N, 1, 1)]
+void SharedMemoryFFTColumn(uint3 groupId : SV_GroupID, uint3 groupThreadId : SV_GroupThreadID)
+{
+    //Perform fast fourier transform across columns using shared on-chip memory
+    uint col = groupId.x;
+    uint cascade = groupId.z;
+    uint row = groupThreadId.x;
+    uint safeRow = min(row, (uint) (N - 1));
+
+    fftBufferA[row] = BufferIn[uint3(col, safeRow, cascade)];
+    GroupMemoryBarrierWithGroupSync();
+
+    uint stageCount = (uint) log2((float) N);
+    bool sourceIsA = true;
+
+    [loop]
+    for (uint stage = 0; stage < stageCount; stage++)
+    {
+        float4 twiddleData = TwiddleFactorTex[uint2(stage, safeRow)];
+        float2 twiddle = twiddleData.xy;
+        uint indexA = (uint) twiddleData.z;
+        uint indexB = (uint) twiddleData.w;
+
+        float4 valueA = sourceIsA ? fftBufferA[indexA] : fftBufferB[indexA];
+        float4 valueB = sourceIsA ? fftBufferA[indexB] : fftBufferB[indexB];
+        float4 result = valueA + float4(ComplexMul(twiddle, valueB.xy), ComplexMul(twiddle, valueB.zw));
+
+        if (sourceIsA)
+        {
+            fftBufferB[row] = result;
+        }
+        else
+        {
+            fftBufferA[row] = result;
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+        sourceIsA = !sourceIsA;
+    }
+
+    if (row < (uint) N)
+    {
+        float4 finalValue = sourceIsA ? fftBufferA[row] : fftBufferB[row];
+        BufferOut[uint3(col, row, cascade)] = finalValue;
+    }
+}
+
+[numthreads(16, 16, 1)]
+void FinalOutputDisplacement(uint3 id : SV_DispatchThreadID)
+{
+    //Normalize and unpack displacement and cross-term data
+    uint cascade = id.z;
+    float4 value = BufferIn[uint3(id.xy, cascade)];
+
+    float sign = ((id.x + id.y) & 1) == 0 ? 1.0 : -1.0;
+    float normalization = 1.0;
+    value *= sign * normalization;
+
+    float dx = value.x;
+    float dz = value.y;
+    float height = value.z;
+    float jacXZ = value.w;
+
+    DisplacementXOut[uint3(id.xy, cascade)] = float4(dx, dx, dx, 1);
+    DisplacementZOut[uint3(id.xy, cascade)] = float4(dz, dz, dz, 1);
+    HeightOut[uint3(id.xy, cascade)] = float4(height, height, height, 1);
+    JacobianXZOut[uint3(id.xy, cascade)] = float4(jacXZ, jacXZ, jacXZ, 1);
+}
+
+[numthreads(16, 16, 1)]
+void FinalOutputSlope(uint3 id : SV_DispatchThreadID)
+{
+    //Normalize and unpack slope and stretch term data
+    uint cascade = id.z;
+    float4 value = BufferIn[uint3(id.xy, cascade)];
+
+    float sign = ((id.x + id.y) & 1) == 0 ? 1.0 : -1.0;
+    float normalization = 1.0;
+    value *= sign * normalization;
+
+    float slopeX = value.x;
+    float slopeZ = value.y;
+    float jacXX = value.z;
+    float jacZZ = value.w;
+
+    SlopeXOut[uint3(id.xy, cascade)] = float4(slopeX, slopeX, slopeX, 1);
+    SlopeZOut[uint3(id.xy, cascade)] = float4(slopeZ, slopeZ, slopeZ, 1);
+    JacobianXXOut[uint3(id.xy, cascade)] = float4(jacXX, jacXX, jacXX, 1);
+    JacobianZZOut[uint3(id.xy, cascade)] = float4(jacZZ, jacZZ, jacZZ, 1);
+}

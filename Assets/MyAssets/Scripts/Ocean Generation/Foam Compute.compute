@@ -1,0 +1,79 @@
+#pragma kernel FoamGenerate
+#pragma kernel FoamAccumulate
+
+RWTexture2DArray<float4> FoamGenTexArray;
+Texture2DArray<float4> FoamAccumIn;
+RWTexture2DArray<float4> FoamAccumOut;
+Texture2DArray<float4> DisplacementX;
+Texture2DArray<float4> DisplacementZ;
+
+//Sample horizontal displacement rate of change for stretching
+Texture2DArray<float4> JacobianXX;
+Texture2DArray<float4> JacobianZZ;
+Texture2DArray<float4> JacobianXZ;
+
+SamplerState linear_repeat_sampler;
+int N;
+float FoamThreshold;
+float FoamGenStrength;
+float FoamDecayRate;
+float DeltaTime;
+int FoamN;
+int DisplacementN;
+
+//Store world size per cascade for batch dispatching
+StructuredBuffer<float> CascadeL;
+
+[numthreads(16, 16, 1)]
+void FoamGenerate(uint3 id : SV_DispatchThreadID)
+{
+    uint2 coord = id.xy;
+    uint cascade = id.z;
+    float2 uv = (coord + 0.5) / (float) FoamN;
+
+    //Sample exact Jacobian terms from precomputed textures
+    float dDx_dx = JacobianXX.SampleLevel(linear_repeat_sampler, float3(uv, cascade), 0).r;
+    float dDz_dz = JacobianZZ.SampleLevel(linear_repeat_sampler, float3(uv, cascade), 0).r;
+    float dDx_dz = JacobianXZ.SampleLevel(linear_repeat_sampler, float3(uv, cascade), 0).r;
+
+    float Jxx = 1.0 + dDx_dx;
+    float Jzz = 1.0 + dDz_dz;
+    float J = Jxx * Jzz - dDx_dz * dDx_dz;
+
+    float foamEdgeWidth = 0.15;
+    
+    //Calculate foam generation factor based on surface compression
+    float foamGen = (1.0 - smoothstep(FoamThreshold - foamEdgeWidth, FoamThreshold + foamEdgeWidth, J)) * FoamGenStrength;
+
+    FoamGenTexArray[uint3(coord, cascade)] = float4(foamGen, 0, 0, 1);
+}
+
+[numthreads(16, 16, 1)]
+void FoamAccumulate(uint3 id : SV_DispatchThreadID)
+{
+    uint2 coord = id.xy;
+    uint cascade = id.z;
+    float L = CascadeL[cascade];
+
+    float2 uv = ((float2) coord + 0.5) / (float) FoamN;
+    
+    //Sample displacement offsets for the current water parcel
+    float2 disp = float2(
+        DisplacementX.SampleLevel(linear_repeat_sampler, float3(uv, cascade), 0).r,
+        DisplacementZ.SampleLevel(linear_repeat_sampler, float3(uv, cascade), 0).r
+    );
+
+    float texelsPerMeter = (float) FoamN / L;
+    float2 texelOffset = disp * texelsPerMeter;
+
+    //Sample previous foam from the source position
+    float2 prevUV = uv - (disp / L);
+    float prevFoam = FoamAccumIn.SampleLevel(linear_repeat_sampler, float3(prevUV, cascade), 0).r;
+    float genFoam = FoamGenTexArray[uint3(coord, cascade)].r;
+
+    //Apply decay over time and combine with newly generated foam
+    float decayed = prevFoam * exp(-FoamDecayRate * DeltaTime);
+    float newFoam = saturate(decayed + genFoam);
+
+    FoamAccumOut[uint3(coord, cascade)] = float4(newFoam, 0, 0, 1);
+}

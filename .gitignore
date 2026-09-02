@@ -1,0 +1,12 @@
+/Library/
+/Logs/
+/Temp/
+/Obj/
+/UserSettings/
+/MemoryCaptures/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs

@@ -1,0 +1,110 @@
+#pragma kernel SampleWaterHeight
+
+struct OceanData
+{
+    float waterHeight;
+    float3 normal;
+};
+
+int _CascadeCount;
+float _CascadeLs[32];
+int _ProbeCount;
+
+//Texture arrays
+Texture2DArray<float4> _DisplacementCascades_Height;
+Texture2DArray<float4> _DisplacementCascades_x;
+Texture2DArray<float4> _DisplacementCascades_Y;
+
+//Slope maps for wave normals
+Texture2DArray<float4> _SlopeCascades_X;
+Texture2DArray<float4> _SlopeCascades_Z;
+
+SamplerState sampler_LinearRepeat;
+
+StructuredBuffer<float3> _InputPositions;
+RWStructuredBuffer<OceanData> _OutputResults;
+
+float3 SampleTotalDisplacement(float2 worldXZ)
+{
+    float3 totalDisp = float3(0, 0, 0);
+
+    //Accumulate displacement across all cascades
+    for (int c = 0; c < _CascadeCount; c++)
+    {
+        //Convert world XZ to UV coordinates
+        float2 uv = worldXZ / _CascadeLs[c];
+        float3 uvSlice = float3(uv, c);
+
+        //Sample displacement maps
+        float dx = _DisplacementCascades_x.SampleLevel(sampler_LinearRepeat, uvSlice, 0).r;
+        float dy = _DisplacementCascades_Height.SampleLevel(sampler_LinearRepeat, uvSlice, 0).r;
+        float dz = _DisplacementCascades_Y.SampleLevel(sampler_LinearRepeat, uvSlice, 0).r;
+
+        totalDisp += float3(dx, dy, dz);
+    }
+
+    //Return combined displacement vector
+    return totalDisp;
+}
+
+float2 SampleTotalSlope(float2 worldXZ)
+{
+    float2 totalSlope = float2(0, 0);
+
+    //Accumulate slope across all cascades
+    for (int c = 0; c < _CascadeCount; c++)
+    {
+        //Convert world XZ to UV coordinates
+        float2 uv = worldXZ / _CascadeLs[c];
+        float3 uvSlice = float3(uv, c);
+
+        //Sample slope maps
+        totalSlope.x += _SlopeCascades_X.SampleLevel(sampler_LinearRepeat, uvSlice, 0).r;
+        totalSlope.y += _SlopeCascades_Z.SampleLevel(sampler_LinearRepeat, uvSlice, 0).r;
+    }
+
+    //Return combined slope vector
+    return totalSlope;
+}
+
+[numthreads(64, 1, 1)]
+void SampleWaterHeight(uint3 id : SV_DispatchThreadID)
+{
+    //Check bounds against total probe count
+    if (id.x >= (uint) _ProbeCount)
+    {
+        return;
+    }
+
+    //Fetch target probe position
+    float3 probeWorldPos = _InputPositions[id.x].xyz;
+    float2 targetXZ = probeWorldPos.xz;
+
+    //Iterate to invert horizontal choppiness
+    float2 restXZ = targetXZ;
+    
+    [unroll]
+    for (int i = 0; i < 3; i++)
+    {
+        //Sample displacement at current position guess
+        float3 currentDisp = SampleTotalDisplacement(restXZ);
+        
+        //Subtract horizontal displacement offset
+        restXZ = targetXZ - currentDisp.xz;
+    }
+
+    //Sample displacement at converged rest position
+    float3 finalDisp = SampleTotalDisplacement(restXZ);
+    float waterHeight = finalDisp.y;
+
+    //Calculate wave normal from slope maps
+    float2 totalSlope = SampleTotalSlope(restXZ);
+    float3 waveNormal = normalize(float3(-totalSlope.x, 1.0, -totalSlope.y));
+
+    //Store output results
+    OceanData result;
+    result.waterHeight = waterHeight;
+    result.normal = waveNormal;
+
+    _OutputResults[id.x] = result;
+}
