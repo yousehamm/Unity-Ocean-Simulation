@@ -28,7 +28,7 @@ A real-time ocean rendering and simulation framework built in Unity, using the J
 <img width="800" height="450" alt="ezgif com-optimize (1)" src="https://github.com/user-attachments/assets/276d617d-33fb-4916-9a0c-923706860cc9" />
 
 # In Progress:
-* Dynamic Waterline Mask to Displace Surface and Underwater effects Simultaneously
+* Dynamic Waterline Mask to Display Surface and Underwater effects Simultaneously
 * Dynamic Underwater Caustics
 * Underwater Volumetrics
 * Jacobian Foam
