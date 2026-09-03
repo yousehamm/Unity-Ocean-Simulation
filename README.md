@@ -13,7 +13,7 @@ A real-time ocean rendering and simulation framework built in Unity, using the J
 ## Initial Rigid-Body Physics & Buoyancy Integration
  * Asynchronous GPU readback (AsyncGPUReadback), allowing the transfer of wave displacements to the CPU without stalling the rendering thread
  * Dynamic Buoyancy Force and Torque calculations based on Physics Points along a mesh
-<img width="800" height="450" alt="Movie_Displacement_Water" src="https://github.com/user-attachments/assets/f8446846-f5c9-4236-aed9-d70faf9e94c4" />
+<img width="800" height="450" alt="ezgif com-optimize" src="https://github.com/user-attachments/assets/dcc4fbf5-2c9b-4e79-967c-cf9b24e1f38a" />
 
 ## Ocean Surface Effects
  * Specular Reflections for realistic Sun Glints
