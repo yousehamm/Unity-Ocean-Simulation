@@ -3,29 +3,29 @@ A real-time ocean rendering and simulation framework built in Unity, using the J
 <img width="800" height="450" alt="Movie_Main_Water" src="https://github.com/user-attachments/assets/5d52ae60-c672-4376-9a15-f91d78a9f907" />
 
 # Current Features/Progress:
-* Full Ocean Displacement & Normal Calculations
+## Full Ocean Displacement & Normal Calculations
 <img width="800" height="450" alt="Movie_Displacement_Water" src="https://github.com/user-attachments/assets/09642405-edaa-4fc3-b584-c565a1aac3af" />
-  * Initially used the Standard Phillips Ocean Spectrum, before switching to JONSWAP + TMA
-  * Conversion from Spectra to Displacement done via the Inverse Fast Fourier Transform (Cooley-Tukey Algorithm)
-  * Both IFFT & Spectra computed in HLSL on the GPU in Parallel
-  * Capable of Multiple Cascades of various LODs
+ * Initially used the Standard Phillips Ocean Spectrum, before switching to JONSWAP + TMA
+ * Conversion from Spectra to Displacement done via the Inverse Fast Fourier Transform (Cooley-Tukey Algorithm)
+ * Both IFFT & Spectra computed in HLSL on the GPU in Parallel
+ * Capable of Multiple Cascades of various LODs
 
-* Initial Rigid-Body Physics & Buoyancy Integration
+## Initial Rigid-Body Physics & Buoyancy Integration
 <img width="800" height="450" alt="Movie_Displacement_Water" src="https://github.com/user-attachments/assets/f8446846-f5c9-4236-aed9-d70faf9e94c4" />
-  * Asynchronous GPU readback (AsyncGPUReadback), allowing the transfer of wave displacements to the CPU without stalling the rendering thread
-  * Dynamic Buoyancy Force and Torque calculations based on Physics Points along a mesh
+ * Asynchronous GPU readback (AsyncGPUReadback), allowing the transfer of wave displacements to the CPU without stalling the rendering thread
+ * Dynamic Buoyancy Force and Torque calculations based on Physics Points along a mesh
 
-* Ocean Surface Effects
+## Ocean Surface Effects
 <img width="800" height="450" alt="image" src="https://github.com/user-attachments/assets/bc6c4ddc-b1ec-4212-b7e7-3d978f72aab6" />
-  * Specular Reflections for realistic Sun Glints
-  * Environmental Reflections based on Dynamic Skybox
-  * Subsurface Scattering on thin Wave Crests
-  * Underwater Refraction & Depth-Based Color Absorption
+ * Specular Reflections for realistic Sun Glints
+ * Environmental Reflections based on Dynamic Skybox
+ * Subsurface Scattering on thin Wave Crests
+ * Underwater Refraction & Depth-Based Color Absorption
 
-* Dynamic Skybox
+## Dynamic Skybox
 <img width="800" height="450" alt="ezgif com-optimize (1)" src="https://github.com/user-attachments/assets/276d617d-33fb-4916-9a0c-923706860cc9" />
-  * Physically Based with procedural atmospheric scattering model
-  * Synced with Sun/Main Light Position
+ * Physically Based with procedural atmospheric scattering model
+ * Synced with Sun/Main Light Position
 
 # In Progress:
 * Dynamic Waterline Mask to Displace Surface and Underwater effects Simultaneously
